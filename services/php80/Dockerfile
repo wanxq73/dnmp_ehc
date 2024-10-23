@@ -6,26 +6,34 @@ ARG PHP_EXTENSIONS
 ARG CONTAINER_PACKAGE_URL
 ARG COMPOSER_URL
 
-RUN if [ "${CONTAINER_PACKAGE_URL}" != "" ] ; then sed -i "s/dl-cdn.alpinelinux.org/${CONTAINER_PACKAGE_URL}/g" /etc/apk/repositories ; fi
+# wanxiangqian@163.com, 2024-10-23
+ENV ENV /etc/env.sh
+RUN echo "alias ll='ls -l'" >> "${ENV}"
 
+# Alpine Linux apk repository.
+RUN if [ "${CONTAINER_PACKAGE_URL}" != "" ] ; \
+    then sed -i "s/dl-cdn.alpinelinux.org/${CONTAINER_PACKAGE_URL}/g" /etc/apk/repositories ; \
+fi
+
+# install php extensions as specified by ./extensions
 COPY ./extensions /tmp/extensions
 WORKDIR /tmp/extensions
-
 RUN chmod +x install.sh \
     && sh install.sh \
     && rm -rf /tmp/extensions
 
 ADD ./extensions/install-php-extensions  /usr/local/bin/
-
 RUN chmod uga+x /usr/local/bin/install-php-extensions
 
+# Timezone data [https://www.iana.org/time-zones]
 RUN apk --no-cache add tzdata \
     && cp "/usr/share/zoneinfo/$TZ" /etc/localtime \
     && echo "$TZ" > /etc/timezone
 
 
 # Fix: https://github.com/docker-library/php/issues/240
-RUN apk add gnu-libiconv libstdc++ --no-cache --repository http://${CONTAINER_PACKAGE_URL}/alpine/edge/community/ --allow-untrusted
+RUN apk add gnu-libiconv libstdc++ --no-cache --allow-untrusted \
+    --repository http://${CONTAINER_PACKAGE_URL}/alpine/edge/community/
 ENV LD_PRELOAD /usr/lib/preloadable_libiconv.so php
 
 
